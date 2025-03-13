@@ -1,0 +1,70 @@
+// Word Add-in with Task Pane UI
+// This script formats citations using a selected style from the task pane UI
+
+Office.onReady(() => {
+    console.log("Add-in is ready");
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+    document.getElementById("formatBtn").addEventListener("click", function () {
+        let selectedStyle = document.getElementById("style").value;
+        formatCitations(selectedStyle);
+    });
+});
+
+async function formatCitations(style) {
+    try {
+        await Word.run(async (context) => {
+            let body = context.document.body;
+            body.load("text");
+            await context.sync();
+            
+            let text = body.text;
+            let citations = extractCitations(text);
+            let referenceList = extractReferences(text);
+            
+            let formattedCitations = applyCitationStyle(citations, referenceList, style);
+            replaceCitations(body, formattedCitations);
+            
+            await context.sync();
+            console.log("Citations formatted successfully.");
+        });
+    } catch (error) {
+        console.error("Error formatting citations:", error);
+    }
+}
+
+function extractCitations(text) {
+    let citationRegex = /\{.*?\}|\[\d+\]/g;
+    return text.match(citationRegex) || [];
+}
+
+function extractReferences(text) {
+    let referencesSection = text.split("References")[1] || "";
+    return referencesSection.split("\n");
+}
+
+function applyCitationStyle(citations, referenceList, style) {
+    let formatted = {};
+    citations.forEach(citation => {
+        let formattedCitation = formatAccordingToStyle(citation, referenceList, style);
+        formatted[citation] = formattedCitation;
+    });
+    return formatted;
+}
+
+function formatAccordingToStyle(citation, referenceList, style) {
+    if (style === "APA") {
+        return citation.replace(/\{(.*?)\}/, "($1, YEAR)");
+    } else if (style === "Vancouver") {
+        return citation.replace(/\[(\d+)\]/, "[$1]");
+    }
+    return citation;
+}
+
+async function replaceCitations(body, formattedCitations) {
+    Object.keys(formattedCitations).forEach(original => {
+        let formatted = formattedCitations[original];
+        body.insertText(body.text.replace(original, formatted), "Replace");
+    });
+}
